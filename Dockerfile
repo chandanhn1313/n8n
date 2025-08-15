@@ -1,35 +1,38 @@
 # ---- Stage 1: Build ----
-FROM node:20 as builder
+FROM node:22.16 as builder
 
-# Enable pnpm
 RUN corepack enable
+RUN corepack prepare pnpm@10.12.1 --activate
 
-# Set workdir
 WORKDIR /app
 
-# Copy package manager files
 COPY package.json pnpm-lock.yaml ./
 COPY packages ./packages
 
-# Install dependencies
 RUN pnpm install --frozen-lockfile
-
-# Build all packages
 RUN pnpm build
 
 # ---- Stage 2: Runtime ----
-FROM node:20-slim
+FROM node:22.16-slim
+
+RUN corepack enable
+RUN corepack prepare pnpm@10.12.1 --activate
 
 WORKDIR /app
 
-# Copy built files from builder
 COPY --from=builder /app ./
 
-# Install production deps only
 RUN pnpm install --prod --frozen-lockfile
 
-# Expose n8n port
+# Add gcsfuse for mounting GCS bucket
+RUN apt-get update && apt-get install -y gcsfuse && rm -rf /var/lib/apt/lists/*
+
+# Create directory for n8n data
+RUN mkdir -p /home/node/.n8n && chown -R node:node /home/node/.n8n
+
+USER node
+
 EXPOSE 5678
 
-# Default command
-CMD ["n8n", "start"]
+# Mount GCS bucket to /home/node/.n8n before starting
+ENTRYPOINT ["/bin/sh", "-c", "gcsfuse $GCS_BUCKET /home/node/.n8n && n8n start"]
