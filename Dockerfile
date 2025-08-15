@@ -9,7 +9,8 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 COPY packages ./packages
 
-ENV PNPM_DISABLE_CATALOG=true RUN pnpm install --frozen-lockfile
+ENV PNPM_DISABLE_CATALOG=true 
+RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
 # ---- Stage 2: Runtime ----
